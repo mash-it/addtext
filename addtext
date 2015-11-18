@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+
+import os, sys, argparse, platform
+from PIL import Image, ImageDraw, ImageFont
+
+parser = argparse.ArgumentParser()
+parser.add_argument("inputfile", type=str, help='input image file')
+parser.add_argument("text", type=str, help='text to write')
+parser.add_argument("outputfile", type=str, help='output image file')
+parser.add_argument("-m", "--margin", type=int, help='pixel from corner', default=5)
+parser.add_argument("-p", "--position", type=str, help='default: lefttop', default='lefttop')
+parser.add_argument("-c", "--color", type=str, help='default: black', default='black')
+parser.add_argument("-s", "--size", type=int, help='size of text', default=24)
+parser.add_argument("-f", "--font", type=str, help='path to font file')
+args = parser.parse_args()
+
+# set font automatically
+text = args.text
+if sys.version_info.major == 2:
+	text = text.decode("utf-8")
+
+isMultibytes = False
+if max(map(ord, text)) > 255:
+	isMultibytes = True
+
+fontpath = args.font
+if fontpath == None:
+	# it is tested by Ubuntu 14.04 only. 
+	# Maybe in CentOS or old Ubuntu this cannot work.
+	if platform.system() == 'Linux':
+		if isMultibytes:
+			fontpath = '/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf'
+		else:
+			fontpath = '/usr/share/fonts/truetype/freefont/FreeSans.ttf'
+
+if fontpath == None or os.path.exists(fontpath):
+	RuntimeError("Cannot find font. Set font file by -f option.")
+
+# set position
+position = args.position.replace("left","l").replace("right","r").replace("top","t").replace("bottom","b")
+if position not in ['lt','rt','lb','rb']:
+	raise RuntimeError("position must be lefttop, righttop, leftbottom, or rightbottom")
+
+font = ImageFont.truetype(fontpath, args.size, encoding="unic")
+
+img = Image.open(args.inputfile)
+(imgwidth, imgheight) = img.size
+draw = ImageDraw.Draw(img)
+
+# get text size and position
+textwidth, textheight = draw.textsize(text=text, font=font)
+if position[0] == 'l':
+	x = args.margin
+else:
+	x = imgwidth - textwidth - args.margin
+if position[1] == 't':
+	y = args.margin
+else:
+	y = imgheight - textheight - args.margin
+
+# draw and save
+draw.text(xy=(x,y), text=text, fill=args.color, font=font)
+img.save(args.outputfile)
+
